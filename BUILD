@@ -19,7 +19,7 @@ go_library(
 
 go_binary(
     name = "bazel_dependency_tools",
-    data = ["WORKSPACE"],
+    data = ["WORKSPACE"] + glob(["testdata/**"]),
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )

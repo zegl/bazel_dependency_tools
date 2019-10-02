@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"regexp"
 
@@ -17,7 +18,13 @@ func main() {
 	parseWorkspace("testdata/rules_go_0_19_3_WORKSPACE")
 }
 
-func parseWorkspace(path string) {
+type lineReplacement struct {
+	filename           string
+	line               int32
+	find, substitution string
+}
+
+func parseWorkspace(path string) []lineReplacement {
 	file, _, err := starlark.SourceProgram(path, nil, func(name string) bool {
 		log.Printf("isPredeclared: %s", name)
 		return false
@@ -26,39 +33,53 @@ func parseWorkspace(path string) {
 		panic(err)
 	}
 
+	var replacements []lineReplacement
+
 	for _, stmt := range file.Stmts {
 		switch s := stmt.(type) {
 		case *syntax.ExprStmt:
 			switch e := s.X.(type) {
 			case *syntax.CallExpr:
 				if ident, ok := e.Fn.(*syntax.Ident); ok && ident.Name == "http_archive" {
-					log.Println("http_archive!")
+					if archiveReplacements, err := checkHttpArchive(e); err == nil {
+						replacements = append(replacements, archiveReplacements...)
+					}
+				}
+			}
+		}
+	}
 
-					for _, arg := range e.Args {
-						//log.Printf("arg: %T %+v", arg, arg)
+	return replacements
+}
 
-						if binExp, ok := arg.(*syntax.BinaryExpr); ok {
-							//log.Printf("binExp: %+v", binExp, binExp)
+func checkHttpArchive(e *syntax.CallExpr) ([]lineReplacement, error) {
+	for _, arg := range e.Args {
+		if binExp, ok := arg.(*syntax.BinaryExpr); ok {
+			if binExp.Op == syntax.EQ {
+				if xIdent, ok := binExp.X.(*syntax.Ident); ok && xIdent.Name == "urls" {
+					if urlsListExpr, ok := binExp.Y.(*syntax.ListExpr); ok {
+						for _, urlSingleListExpr := range urlsListExpr.List {
+							if urlString, ok := urlSingleListExpr.(*syntax.Literal); ok {
+								if gitHubReleaseRegex.MatchString(urlString.Raw) {
+									existingVersion, newerVersion, err := findNewerGitHubRelease(urlString.Raw)
+									if err != nil {
+										// This URL did not match. Keep going with the next url in the list
+										continue
+									}
 
-							if binExp.Op == syntax.EQ {
-								//log.Printf("x: %T %+v", binExp.X, binExp.X)
-
-								if xIdent, ok := binExp.X.(*syntax.Ident); ok && xIdent.Name == "urls" {
-									// log.Printf("y: %T %+v", binExp.Y, binExp.Y)
-
-									if urlsListExpr, ok := binExp.Y.(*syntax.ListExpr); ok {
-										for _, urlSingleListExpr := range urlsListExpr.List {
-
-											// log.Printf("url: %T %+v", urlSingleListExpr, urlSingleListExpr)
-
-											if urlString, ok := urlSingleListExpr.(*syntax.Literal); ok {
-
-												if gitHubReleaseRegex.MatchString(urlString.Raw) {
-													findNewerGitHubRelease(urlString.Raw)
-												}
-											}
+									// Create line replacements for all literals in this "urls"
+									var replacements []lineReplacement
+									for _, u := range urlsListExpr.List {
+										if s, ok := u.(*syntax.Literal); ok {
+											replacements = append(replacements, lineReplacement{
+												filename:     s.TokenPos.Filename(),
+												line:         s.TokenPos.Line,
+												find:         existingVersion,
+												substitution: newerVersion,
+											})
 										}
 									}
+									return replacements, nil
 								}
 							}
 						}
@@ -67,15 +88,17 @@ func parseWorkspace(path string) {
 			}
 		}
 	}
+
+	return nil, errors.New("no match")
 }
 
-func findNewerGitHubRelease(url string) (string, error) {
-	log.Printf("findNewerGitHubRelease: %s", url)
+func findNewerGitHubRelease(url string) (oldVersion, newVersion string, err error) {
 	submatches := gitHubReleaseRegex.FindStringSubmatch(url)
 	owner := submatches[1]
 	repo := submatches[2]
 	tag := submatches[3]
-	log.Printf("%+v", tag)
+
+	oldVersion = tag
 
 	client := github.NewClient(nil)
 
@@ -87,7 +110,7 @@ func findNewerGitHubRelease(url string) (string, error) {
 	highestVersion, err := semver.New(tag)
 	if err != nil {
 		log.Println("Could not find version:", err)
-		return "", err
+		return oldVersion, "", err
 	}
 
 	for _, release := range releases {
@@ -98,5 +121,5 @@ func findNewerGitHubRelease(url string) (string, error) {
 		}
 	}
 
-	return highestVersion.String(), nil
+	return oldVersion, highestVersion.String(), nil
 }
