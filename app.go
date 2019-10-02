@@ -90,109 +90,86 @@ func parseWorkspace(path string, gitHubClient *github.Client) []lineReplacement 
 
 func checkHttpArchive(e *syntax.CallExpr, gitHubClient *github.Client) ([]lineReplacement, error) {
 	var replacements []lineReplacement
-	var newSha256sum string
 
-	// Find name of this dependency, used in logging
+	var archiveName string
+	var archiveUrls []*syntax.Literal
+	var archiveSha256 *syntax.Literal
+	var archiveStripPrefix *syntax.Literal
+
 	for _, arg := range e.Args {
 		if binExp, ok := arg.(*syntax.BinaryExpr); ok && binExp.Op == syntax.EQ {
-			if xIdent, ok := binExp.X.(*syntax.Ident); ok && xIdent.Name == "name" {
-				if rhs, ok := binExp.Y.(*syntax.Literal); ok {
-					log.Printf("Checking %s", rhs.Value.(string))
-					break
-				}
-			}
-		}
-	}
-
-argsLoop:
-	for _, arg := range e.Args {
-		if binExp, ok := arg.(*syntax.BinaryExpr); ok {
-			if binExp.Op == syntax.EQ {
-
-				// Single URL
-				if xIdent, ok := binExp.X.(*syntax.Ident); ok && xIdent.Name == "url" {
-					if urlString, ok := binExp.Y.(*syntax.Literal); ok {
-						if gitHubReleaseRegex.MatchString(urlString.Raw) {
-							existingVersion, newerVersion, sha256sum, err := findNewerGitHubRelease(gitHubClient, urlString.Raw)
-							if err != nil {
-								break argsLoop
-							}
-
-							replacements = append(replacements, lineReplacement{
-								filename:     urlString.TokenPos.Filename(),
-								line:         urlString.TokenPos.Line,
-								find:         existingVersion,
-								substitution: newerVersion,
-							})
-
-							newSha256sum = sha256sum
-							break argsLoop
-						}
+			if xIdent, ok := binExp.X.(*syntax.Ident); ok {
+				switch xIdent.Name {
+				case "name":
+					if rhs, ok := binExp.Y.(*syntax.Literal); ok {
+						archiveName = rhs.Value.(string)
 					}
-				}
-
-				// Multiple URLs
-				if xIdent, ok := binExp.X.(*syntax.Ident); ok && xIdent.Name == "urls" {
+				case "url":
+					if urlString, ok := binExp.Y.(*syntax.Literal); ok {
+						archiveUrls = append(archiveUrls, urlString)
+					}
+				case "urls":
 					if urlsListExpr, ok := binExp.Y.(*syntax.ListExpr); ok {
 						for _, urlSingleListExpr := range urlsListExpr.List {
 							if urlString, ok := urlSingleListExpr.(*syntax.Literal); ok {
-
-								if gitHubReleaseRegex.MatchString(urlString.Raw) {
-									existingVersion, newerVersion, sha256sum, err := findNewerGitHubRelease(gitHubClient, urlString.Raw)
-									if err != nil {
-										// This URL did not match. Keep going with the next url in the list
-										continue
-									}
-
-									// Create line replacements for all literals in this "urls"
-									for _, u := range urlsListExpr.List {
-										if s, ok := u.(*syntax.Literal); ok {
-											replacements = append(replacements, lineReplacement{
-												filename:     s.TokenPos.Filename(),
-												line:         s.TokenPos.Line,
-												find:         existingVersion,
-												substitution: newerVersion,
-											})
-										}
-									}
-
-									newSha256sum = sha256sum
-									break argsLoop
-								}
+								archiveUrls = append(archiveUrls, urlString)
 							}
 						}
 					}
-				}
-			}
-		}
-	}
-
-	if newSha256sum != "" {
-		// Find line num of where the sha265sum is defined
-		var foundOldSha256Row bool
-		for _, arg := range e.Args {
-			if binExp, ok := arg.(*syntax.BinaryExpr); ok && binExp.Op == syntax.EQ {
-				if xIdent, ok := binExp.X.(*syntax.Ident); ok && xIdent.Name == "sha256" {
+				case "sha256":
 					if rhs, ok := binExp.Y.(*syntax.Literal); ok {
-						replacements = append(replacements, lineReplacement{
-							filename:     rhs.TokenPos.Filename(),
-							line:         rhs.TokenPos.Line,
-							find:         rhs.Value.(string),
-							substitution: newSha256sum,
-						})
-						foundOldSha256Row = true
-						break
+						archiveSha256 = rhs
+					}
+				case "strip_prefix":
+					if rhs, ok := binExp.Y.(*syntax.Literal); ok {
+						archiveStripPrefix = rhs
 					}
 				}
 			}
 		}
-
-		if !foundOldSha256Row {
-			return nil, errors.New("row of existing sha256 not found")
-		}
 	}
 
-	// TODO: Check if there is a strip_prefix configuration that needs to be updated
+	log.Printf("Checking %s", archiveName)
+
+	for _, url := range archiveUrls {
+		if gitHubReleaseRegex.MatchString(url.Raw) {
+			existingVersion, newerVersion, sha256sum, err := findNewerGitHubRelease(gitHubClient, url.Raw)
+			if err != nil {
+				continue
+			}
+
+			// Create replacements for all urls
+			for _, subUrl := range archiveUrls {
+				replacements = append(replacements, lineReplacement{
+					filename:     subUrl.TokenPos.Filename(),
+					line:         subUrl.TokenPos.Line,
+					find:         existingVersion,
+					substitution: newerVersion,
+				})
+
+			}
+
+			// Create substitution for sha256
+			if archiveSha256 != nil {
+				replacements = append(replacements, lineReplacement{
+					filename:     archiveSha256.TokenPos.Filename(),
+					line:         archiveSha256.TokenPos.Line,
+					find:         archiveSha256.Value.(string),
+					substitution: sha256sum,
+				})
+			}
+
+			// Create substitution for strip_prefix
+			if archiveStripPrefix != nil {
+				replacements = append(replacements, lineReplacement{
+					filename:     archiveStripPrefix.TokenPos.Filename(),
+					line:         archiveStripPrefix.TokenPos.Line,
+					find:         existingVersion,
+					substitution: newerVersion,
+				})
+			}
+		}
+	}
 
 	if len(replacements) != 0 {
 		return replacements, nil
@@ -246,9 +223,10 @@ func findNewerGitHubRelease(githubClient *github.Client, url string) (oldVersion
 		sha256sum = fmt.Sprintf("%x", sha256.Sum256(allData))
 	}
 
-	if oldVersion != highestVersion.String() {
-		log.Printf("Found: version=%s sha256=%s", highestVersion.String(), sha256sum)
+	if oldVersion == highestVersion.String() {
+		return "", "", "", errors.New("no newer version found")
 	}
 
+	log.Printf("Found: version=%s sha256=%s", highestVersion.String(), sha256sum)
 	return oldVersion, highestVersion.String(), sha256sum, nil
 }
