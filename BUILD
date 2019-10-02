@@ -14,6 +14,7 @@ go_library(
         "@com_github_google_go_github_v28//github:go_default_library",
         "@net_starlark_go//starlark:go_default_library",
         "@net_starlark_go//syntax:go_default_library",
+        "@org_golang_x_oauth2//:go_default_library",
     ],
 )
 
