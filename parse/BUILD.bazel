@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["parse.go"],
+    importpath = "github.com/zegl/bazel_dependency_tools/parse",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//http_archive:go_default_library",
+        "//internal:go_default_library",
+        "//maven_jar:go_default_library",
+        "@com_github_google_go_github_v28//github:go_default_library",
+        "@net_starlark_go//starlark:go_default_library",
+        "@net_starlark_go//syntax:go_default_library",
+    ],
+)
