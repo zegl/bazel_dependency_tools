@@ -1,0 +1,8 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["replacement.go"],
+    importpath = "github.com/zegl/bazel_dependency_tools/internal",
+    visibility = ["//visibility:public"],
+)

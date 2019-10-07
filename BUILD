@@ -10,10 +10,9 @@ go_library(
     importpath = "github.com/zegl/bazel_dependency_tools",
     visibility = ["//visibility:private"],
     deps = [
-        "@com_github_blang_semver//:go_default_library",
+        "//maven_jar:go_default_library",
+        "//parse:go_default_library",
         "@com_github_google_go_github_v28//github:go_default_library",
-        "@net_starlark_go//starlark:go_default_library",
-        "@net_starlark_go//syntax:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",
     ],
 )
@@ -31,6 +30,9 @@ go_test(
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
     deps = [
+        "//http_archive:go_default_library",
+        "//internal:go_default_library",
+        "//parse:go_default_library",
         "@com_github_blang_semver//:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],
