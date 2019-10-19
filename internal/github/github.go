@@ -21,8 +21,12 @@ func NewFakeClient() *fakeClient {
 
 func (f *fakeClient) AddRelease(owner, repo, tag, tarURL string) {
 	f.releases[owner+repo] = append(f.releases[owner+repo], &github.RepositoryRelease{
-		TagName:    &tag,
-		TarballURL: &tarURL,
+		TagName: &tag,
+		Assets: []github.ReleaseAsset{
+			{
+				BrowserDownloadURL: &tarURL,
+			},
+		},
 	})
 }
 
