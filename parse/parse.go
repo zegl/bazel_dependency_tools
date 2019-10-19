@@ -1,17 +1,17 @@
 package parse
 
 import (
-	"github.com/google/go-github/v28/github"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
 	"log"
 
 	"github.com/zegl/bazel_dependency_tools/http_archive"
 	"github.com/zegl/bazel_dependency_tools/internal"
+	"github.com/zegl/bazel_dependency_tools/internal/github"
 	"github.com/zegl/bazel_dependency_tools/maven_jar"
 )
 
-func ParseWorkspace(path string, gitHubClient *github.Client, mavenJarNewestFunc maven_jar.NewestVersionResolver) []internal.LineReplacement {
+func ParseWorkspace(path string, gitHubClient github.Client, mavenJarNewestFunc maven_jar.NewestVersionResolver) []internal.LineReplacement {
 	file, _, err := starlark.SourceProgram(path, nil, func(name string) bool {
 		log.Printf("isPredeclared: %s", name)
 		return true

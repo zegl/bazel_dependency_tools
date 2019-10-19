@@ -1,25 +1,27 @@
 package http_archive
 
 import (
-	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"github.com/blang/semver"
-	"github.com/google/go-github/v28/github"
-	"go.starlark.net/syntax"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"regexp"
 	"strings"
 
+	"github.com/blang/semver"
+	"go.starlark.net/syntax"
+
 	"github.com/zegl/bazel_dependency_tools/internal"
+	"github.com/zegl/bazel_dependency_tools/internal/github"
+
+	realGithub "github.com/google/go-github/v28/github"
 )
 
 var gitHubReleaseRegex = regexp.MustCompile(`https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/releases/download/v?([a-z0-9\.]+)/(.*)\.tar\.gz`)
 
-func Check(e *syntax.CallExpr, gitHubClient *github.Client) ([]internal.LineReplacement, error) {
+func Check(e *syntax.CallExpr, gitHubClient github.Client) ([]internal.LineReplacement, error) {
 	var replacements []internal.LineReplacement
 
 	var archiveName string
@@ -109,7 +111,7 @@ func Check(e *syntax.CallExpr, gitHubClient *github.Client) ([]internal.LineRepl
 	return nil, errors.New("no match")
 }
 
-func FindNewerGitHubRelease(githubClient *github.Client, url string) (oldVersion, newVersion, sha256sum string, err error) {
+func FindNewerGitHubRelease(githubClient github.Client, url string) (oldVersion, newVersion, sha256sum string, err error) {
 	submatches := gitHubReleaseRegex.FindStringSubmatch(url)
 	owner := submatches[1]
 	repo := submatches[2]
@@ -117,9 +119,9 @@ func FindNewerGitHubRelease(githubClient *github.Client, url string) (oldVersion
 
 	oldVersion = tag
 
-	releases, _, err := githubClient.Repositories.ListReleases(context.Background(), owner, repo, nil)
+	releases, err := githubClient.ListReleases(owner, repo)
 	if err != nil {
-		panic(err)
+		return "", "", "", err
 	}
 
 	highestVersion, err := semver.New(strings.TrimLeft(tag, "v"))
@@ -127,7 +129,7 @@ func FindNewerGitHubRelease(githubClient *github.Client, url string) (oldVersion
 		return "", "", "", err
 	}
 
-	var highestRelease *github.RepositoryRelease
+	var highestRelease *realGithub.RepositoryRelease
 
 	for _, release := range releases {
 		if ver, err := semver.New(strings.TrimLeft(*release.TagName, "v")); err == nil {
