@@ -11,7 +11,7 @@ import (
 	"github.com/zegl/bazel_dependency_tools/maven_jar"
 )
 
-func ParseWorkspace(path string, gitHubClient github.Client, mavenJarNewestFunc maven_jar.NewestVersionResolver) []internal.LineReplacement {
+func ParseWorkspace(path, namePrefixFilter string, gitHubClient github.Client, mavenJarNewestFunc maven_jar.NewestVersionResolver) []internal.LineReplacement {
 	file, _, err := starlark.SourceProgram(path, nil, func(name string) bool {
 		log.Printf("isPredeclared: %s", name)
 		return true
@@ -30,11 +30,11 @@ func ParseWorkspace(path string, gitHubClient github.Client, mavenJarNewestFunc 
 				if ident, ok := e.Fn.(*syntax.Ident); ok {
 					switch ident.Name {
 					case "http_archive":
-						if archiveReplacements, err := http_archive.Check(e, gitHubClient); err == nil {
+						if archiveReplacements, err := http_archive.Check(e, namePrefixFilter, gitHubClient); err == nil {
 							replacements = append(replacements, archiveReplacements...)
 						}
 					case "maven_jar":
-						if r, err := maven_jar.Check(e, mavenJarNewestFunc); err == nil {
+						if r, err := maven_jar.Check(e, namePrefixFilter, mavenJarNewestFunc); err == nil {
 							replacements = append(replacements, r...)
 						}
 					}
