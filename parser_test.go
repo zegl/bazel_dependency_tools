@@ -18,7 +18,7 @@ func TestParseWorkspace(t *testing.T) {
 	client.AddRelease("bazelbuild", "rules_go", "0.19.4", "https://github.com/bazelbuild/rules_go/releases/download/0.19.4/rules_go-0.19.4.tar.gz") // https://github.com/bazelbuild/rules_go/releases/download/0.19.3/rules_go-0.19.3.tar.gz
 	// client.AddRelease("bazelbuild", "rules_go", "0.19.4", "xxx") // https://github.com/bazelbuild/rules_go/releases/download/0.19.3/rules_go-0.19.3.tar.gz
 
-	replacements := parse.ParseWorkspace("testdata/rules_go_0_19_3_WORKSPACE", client, nil)
+	replacements := parse.ParseWorkspace("testdata/rules_go_0_19_3_WORKSPACE", "", client, nil)
 	assert.Equal(t, []internal.LineReplacement{
 		{Filename: "testdata/rules_go_0_19_3_WORKSPACE", Line: 6, Find: "0.19.3", Substitution: "0.19.4"},
 		{Filename: "testdata/rules_go_0_19_3_WORKSPACE", Line: 7, Find: "0.19.3", Substitution: "0.19.4"},
@@ -40,11 +40,12 @@ func TestFindNewerVersion(t *testing.T) {
 }
 
 func TestReplace(t *testing.T) {
-	replacements := parse.ParseWorkspace("testdata/maven_jar_WORKSPACE", nil, func(c string) (string, error) {
-		return "11.22.33", nil
+	replacements := parse.ParseWorkspace("testdata/maven_jar_WORKSPACE", "", nil, func(c string) (string, string, error) {
+		return "11.22.33", "deadbeef", nil
 	})
 
 	assert.Equal(t, []internal.LineReplacement{
 		{Filename: "testdata/maven_jar_WORKSPACE", Line: 3, Find: "com.google.zxing:core:3.3.3", Substitution: "com.google.zxing:core:11.22.33"},
+		{Filename: "testdata/maven_jar_WORKSPACE", Line: 4, Find: "b640badcc97f18867c4dfd249ef8d20ec0204c07", Substitution: "deadbeef"},
 	}, replacements)
 }

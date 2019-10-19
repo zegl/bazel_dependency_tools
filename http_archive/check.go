@@ -21,7 +21,7 @@ import (
 
 var gitHubReleaseRegex = regexp.MustCompile(`https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/releases/download/v?([a-z0-9\.]+)/(.*)\.tar\.gz`)
 
-func Check(e *syntax.CallExpr, gitHubClient github.Client) ([]internal.LineReplacement, error) {
+func Check(e *syntax.CallExpr, namePrefixFilter string, gitHubClient github.Client) ([]internal.LineReplacement, error) {
 	var replacements []internal.LineReplacement
 
 	var archiveName string
@@ -60,6 +60,11 @@ func Check(e *syntax.CallExpr, gitHubClient github.Client) ([]internal.LineRepla
 				}
 			}
 		}
+	}
+
+	// Don't attempt to upgrade this dependency
+	if !strings.HasPrefix(archiveName, namePrefixFilter) {
+		return nil, nil
 	}
 
 	log.Printf("Checking %s", archiveName)

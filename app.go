@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -15,6 +16,10 @@ import (
 )
 
 func main() {
+	flagPrefixFilter := flag.String("prefix", "", "Only attempt to upgrade dependencies with this prefix, if prefix is empty (default) all dependencies will be upgraded")
+	flagWorkspace := flag.String("workspace", "WORKSPACE", "Path to the WORKSPACE file")
+	flag.Parse()
+
 	ctx := context.Background()
 
 	ts := oauth2.StaticTokenSource(
@@ -23,11 +28,9 @@ func main() {
 	tc := oauth2.NewClient(ctx, ts)
 	gitHubClient := github.NewGithubClient(realGithub.NewClient(tc))
 
-	workspaceFile := os.Args[1]
+	lineReplacements := parse.ParseWorkspace(*flagWorkspace, *flagPrefixFilter, gitHubClient, maven_jar.NewestAvailable)
 
-	lineReplacements := parse.ParseWorkspace(workspaceFile, gitHubClient, maven_jar.NewestAvailable)
-
-	rawContent, err := ioutil.ReadFile(workspaceFile)
+	rawContent, err := ioutil.ReadFile(*flagWorkspace)
 	if err != nil {
 		panic(err)
 	}
@@ -40,7 +43,7 @@ func main() {
 	}
 
 	// Write the new file
-	err = ioutil.WriteFile(workspaceFile, []byte(strings.Join(rows, "\n")), 0777)
+	err = ioutil.WriteFile(*flagWorkspace, []byte(strings.Join(rows, "\n")), 0777)
 	if err != nil {
 		panic(err)
 	}
