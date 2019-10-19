@@ -3,3 +3,12 @@ maven_jar(
     artifact = "com.google.zxing:core:3.3.3",
     sha1 = "b640badcc97f18867c4dfd249ef8d20ec0204c07",
 )
+
+# Non-string artifact (not yet supported)
+OPENCENSUS_VERSION = "0.21.0"
+maven_jar(
+    name = "io_opencensus_opencensus_api",
+    artifact = "io.opencensus:opencensus-api:%s" % OPENCENSUS_VERSION,
+    sha1 = "73c07fe6458840443f670b21c7bf57657093b4e1",
+)
+
