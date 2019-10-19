@@ -6,16 +6,16 @@ http_archive(
         "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/rules_go/releases/download/v0.20.1/rules_go-v0.20.1.tar.gz",
         "https://github.com/bazelbuild/rules_go/releases/download/v0.20.1/rules_go-v0.20.1.tar.gz",
     ],
-    sha256 = "1d2b8c131b35aa26c176eb4053b89ba78cd6dca7ce3bd806821d5d3431d29cb4",
+    sha256 = "842ec0e6b4fbfdd3de6150b61af92901eeb73681fd4d185746644c338f51d4c0",
 )
 
 http_archive(
     name = "bazel_gazelle",
     urls = [
         "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/bazel-gazelle/releases/download/0.19.0/bazel-gazelle-0.19.0.tar.gz",
-        "https://github.com/bazelbuild/bazel-gazelle/releases/download/0.19.0/bazel-gazelle-0.19.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.19.0/bazel-gazelle-v0.19.0.tar.gz",
     ],
-    sha256 = "5b4005bdc53dafce80e70d06796af6d5ad67cfeba2c61bc9d8770fef1e3313c8",
+    sha256 = "41bff2a0b32b02f20c227d234aa25ef3783998e5453f7eade929704dcff7cd4b",
 )
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
