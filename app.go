@@ -6,9 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/go-github/v28/github"
+	realGithub "github.com/google/go-github/v28/github"
 	"golang.org/x/oauth2"
 
+	"github.com/zegl/bazel_dependency_tools/internal/github"
 	"github.com/zegl/bazel_dependency_tools/maven_jar"
 	"github.com/zegl/bazel_dependency_tools/parse"
 )
@@ -20,7 +21,7 @@ func main() {
 		&oauth2.Token{AccessToken: os.Getenv("GITHUB_TOKEN")},
 	)
 	tc := oauth2.NewClient(ctx, ts)
-	gitHubClient := github.NewClient(tc)
+	gitHubClient := github.NewGithubClient(realGithub.NewClient(tc))
 
 	workspaceFile := os.Args[1]
 

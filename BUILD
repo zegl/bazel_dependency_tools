@@ -10,6 +10,7 @@ go_library(
     importpath = "github.com/zegl/bazel_dependency_tools",
     visibility = ["//visibility:private"],
     deps = [
+        "//internal/github:go_default_library",
         "//maven_jar:go_default_library",
         "//parse:go_default_library",
         "@com_github_google_go_github_v28//github:go_default_library",
@@ -32,6 +33,7 @@ go_test(
     deps = [
         "//http_archive:go_default_library",
         "//internal:go_default_library",
+        "//internal/github:go_default_library",
         "//parse:go_default_library",
         "@com_github_blang_semver//:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
