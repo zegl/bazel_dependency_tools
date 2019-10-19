@@ -142,18 +142,24 @@ func FindNewerGitHubRelease(githubClient github.Client, url string) (oldVersion,
 
 	// var sha256sum string
 	if highestRelease != nil {
-		resp, err := http.Get(*highestRelease.TarballURL)
-		if err != nil {
-			panic(err)
-		}
-		defer resp.Body.Close()
+		for _, r := range highestRelease.Assets {
+			if strings.HasSuffix(r.GetBrowserDownloadURL(), ".tar.gz") {
+				resp, err := http.Get(r.GetBrowserDownloadURL())
+				if err != nil {
+					panic(err)
+				}
+				defer resp.Body.Close()
 
-		allData, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			panic(err)
-		}
+				allData, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					panic(err)
+				}
 
-		sha256sum = fmt.Sprintf("%x", sha256.Sum256(allData))
+				sha256sum = fmt.Sprintf("%x", sha256.Sum256(allData))
+
+				break
+			}
+		}
 	}
 
 	if oldVersion == highestVersion.String() {
