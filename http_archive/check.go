@@ -20,6 +20,7 @@ import (
 )
 
 var gitHubReleaseRegex = regexp.MustCompile(`https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/releases/download/v?([a-z0-9\.]+)/(.*)\.tar\.gz`)
+var githubArchiveRegex = regexp.MustCompile(`https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/archive/v?([a-z0-9\.]+)\.zip`)
 
 func Check(e *syntax.CallExpr, namePrefixFilter string, gitHubClient github.Client) ([]internal.LineReplacement, error) {
 	var replacements []internal.LineReplacement
@@ -70,9 +71,11 @@ func Check(e *syntax.CallExpr, namePrefixFilter string, gitHubClient github.Clie
 	log.Printf("Checking %s", archiveName)
 
 	for _, url := range archiveUrls {
-		if gitHubReleaseRegex.MatchString(url.Raw) {
+		log.Println(url.Raw, gitHubReleaseRegex.MatchString(url.Raw), githubArchiveRegex.MatchString(url.Raw))
+		if gitHubReleaseRegex.MatchString(url.Raw) || githubArchiveRegex.MatchString(url.Raw) {
 			existingVersion, newerVersion, sha256sum, err := FindNewerGitHubRelease(gitHubClient, url.Raw)
 			if err != nil {
+				log.Println(err)
 				continue
 			}
 
@@ -84,7 +87,6 @@ func Check(e *syntax.CallExpr, namePrefixFilter string, gitHubClient github.Clie
 					Find:         existingVersion,
 					Substitution: newerVersion,
 				})
-
 			}
 
 			// Create substitution for sha256
@@ -117,10 +119,23 @@ func Check(e *syntax.CallExpr, namePrefixFilter string, gitHubClient github.Clie
 }
 
 func FindNewerGitHubRelease(githubClient github.Client, url string) (oldVersion, newVersion, sha256sum string, err error) {
-	submatches := gitHubReleaseRegex.FindStringSubmatch(url)
-	owner := submatches[1]
-	repo := submatches[2]
-	tag := submatches[3]
+	var owner, repo, tag, extension string
+
+	if gitHubReleaseRegex.MatchString(url) {
+		submatches := gitHubReleaseRegex.FindStringSubmatch(url)
+		owner = submatches[1]
+		repo = submatches[2]
+		tag = submatches[3]
+		extension = "tar.gz"
+	} else if githubArchiveRegex.MatchString(url) {
+		submatches := githubArchiveRegex.FindStringSubmatch(url)
+		owner = submatches[1]
+		repo = submatches[2]
+		tag = submatches[3]
+		extension = "zip"
+	} else {
+		return "", "", "", errors.New("No pattern matches")
+	}
 
 	oldVersion = tag
 
@@ -145,10 +160,9 @@ func FindNewerGitHubRelease(githubClient github.Client, url string) (oldVersion,
 		}
 	}
 
-	// var sha256sum string
 	if highestRelease != nil {
 		for _, r := range highestRelease.Assets {
-			if strings.HasSuffix(r.GetBrowserDownloadURL(), ".tar.gz") {
+			if strings.HasSuffix(r.GetBrowserDownloadURL(), "."+extension) {
 				resp, err := http.Get(r.GetBrowserDownloadURL())
 				if err != nil {
 					panic(err)
@@ -161,7 +175,6 @@ func FindNewerGitHubRelease(githubClient github.Client, url string) (oldVersion,
 				}
 
 				sha256sum = fmt.Sprintf("%x", sha256.Sum256(allData))
-
 				break
 			}
 		}
