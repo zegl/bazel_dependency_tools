@@ -20,7 +20,7 @@ type NewestVersionResolver func(coordinate string) (version, sha1 string, err er
 type Meta struct {
 	XMLName    xml.Name `xml:"metadata"`
 	Versioning struct {
-		XMLName xml.Name `xml:"versioning"`
+		XMLName  xml.Name `xml:"versioning"`
 		Versions []struct {
 			Version []string `xml:"version"`
 		} `xml:"versions"`
