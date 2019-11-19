@@ -13,8 +13,8 @@ The goal is that bazel_dependency_tools should be able to upgrade dependencies a
 | http_archive | ✅ |
 | maven_jar | ✅ |
 | git_repository | 🙅‍♂️ |
-| http_jar | 🙅‍♂️ |
-| rules_mvn_external | ❓ |
+| rules_mvn_external | 🙅‍♂️ |
+| http_jar | ❓ |
 | go_repository  | ❓ |
 
 * ✅ == implemented, supported
