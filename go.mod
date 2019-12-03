@@ -8,6 +8,6 @@ require (
 	github.com/google/go-github/v28 v28.1.1
 	github.com/stretchr/testify v1.4.0
 	go.starlark.net v0.0.0-20190919145610-979af19b165c
-	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be
+	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	golang.org/x/sys v0.0.0-20191002063906-3421d5a6bb1c // indirect
 )
