@@ -11,6 +11,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//internal/github:go_default_library",
+        "//licenses:go_default_library",
         "//maven_jar:go_default_library",
         "//parse:go_default_library",
         "@com_github_google_go_github_v28//github:go_default_library",

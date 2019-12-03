@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["licenses.go"],
+    importpath = "github.com/zegl/bazel_dependency_tools/licenses",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//maven_jar:go_default_library",
+        "@net_starlark_go//starlark:go_default_library",
+        "@net_starlark_go//syntax:go_default_library",
+    ],
+)
