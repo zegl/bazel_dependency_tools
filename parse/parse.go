@@ -1,17 +1,16 @@
 package parse
 
 import (
-	"go.starlark.net/starlark"
-	"go.starlark.net/syntax"
+	"fmt"
 	"log"
 
-	"github.com/zegl/bazel_dependency_tools/http_archive"
-	"github.com/zegl/bazel_dependency_tools/internal"
-	"github.com/zegl/bazel_dependency_tools/internal/github"
-	"github.com/zegl/bazel_dependency_tools/maven_jar"
+	"go.starlark.net/starlark"
+	"go.starlark.net/syntax"
 )
 
-func ParseWorkspace(path, namePrefixFilter string, gitHubClient github.Client, mavenJarNewestFunc maven_jar.NewestVersionResolver) []internal.LineReplacement {
+type FuncHook func(s *syntax.CallExpr, namePrefixFilter string, workspacePath string) error
+
+func ParseWorkspace(path, namePrefixFilter string, callFuncs map[string]FuncHook) {
 	file, _, err := starlark.SourceProgram(path, nil, func(name string) bool {
 		log.Printf("isPredeclared: %s", name)
 		return true
@@ -20,28 +19,70 @@ func ParseWorkspace(path, namePrefixFilter string, gitHubClient github.Client, m
 		// panic(err)
 	}
 
-	var replacements []internal.LineReplacement
-
+	vars := make(map[string]syntax.Expr)
 	for _, stmt := range file.Stmts {
-		switch s := stmt.(type) {
-		case *syntax.ExprStmt:
-			switch e := s.X.(type) {
-			case *syntax.CallExpr:
-				if ident, ok := e.Fn.(*syntax.Ident); ok {
-					switch ident.Name {
-					case "http_archive":
-						if archiveReplacements, err := http_archive.Check(e, namePrefixFilter, gitHubClient); err == nil {
-							replacements = append(replacements, archiveReplacements...)
-						}
-					case "maven_jar":
-						if r, err := maven_jar.Check(e, namePrefixFilter, mavenJarNewestFunc); err == nil {
-							replacements = append(replacements, r...)
-						}
-					}
+		eval(stmt, vars, namePrefixFilter, path, callFuncs)
+	}
+}
+
+func eval(stmt syntax.Stmt, vars map[string]syntax.Expr, namePrefixFilter, workspacePath string, callFuncs map[string]FuncHook) syntax.Stmt {
+	switch s := stmt.(type) {
+	case *syntax.AssignStmt:
+		if s.Op == syntax.EQ {
+			key := evalExpr(s.LHS, vars, namePrefixFilter, workspacePath, callFuncs)
+			val := evalExpr(s.RHS, vars, namePrefixFilter, workspacePath, callFuncs)
+			ks := key.(*syntax.Literal).Value.(string)
+			vars[ks] = val
+		}
+	case *syntax.ExprStmt:
+		evalExpr(s.X, vars, namePrefixFilter, workspacePath, callFuncs)
+	}
+	return nil
+}
+
+func evalExpr(stmt syntax.Expr, vars map[string]syntax.Expr, namePrefixFilter, workspacePath string, callFuncs map[string]FuncHook) syntax.Expr {
+	switch s := stmt.(type) {
+	case *syntax.Literal:
+		return s
+	case *syntax.ListExpr:
+		return s
+	case *syntax.Ident:
+		if v, ok := vars[s.Name]; ok {
+			return v
+		}
+		return &syntax.Literal{
+			Value: s.Name,
+		}
+	case *syntax.BinaryExpr:
+		switch s.Op {
+		case syntax.PERCENT:
+			val := fmt.Sprintf(
+				evalExpr(s.X, vars, namePrefixFilter, workspacePath, callFuncs).(*syntax.Literal).Value.(string),
+				evalExpr(s.Y, vars, namePrefixFilter, workspacePath, callFuncs).(*syntax.Literal).Value.(string),
+			)
+			return &syntax.Literal{
+				Value: val,
+			}
+		default:
+			panic("unknown binary expr op")
+		}
+	case *syntax.CallExpr:
+		if ident, ok := s.Fn.(*syntax.Ident); ok {
+
+			// Evaluate / simplify args
+			for argI, arg := range s.Args {
+				if binExp, ok := arg.(*syntax.BinaryExpr); ok && binExp.Op == syntax.EQ {
+					binExp.Y = evalExpr(binExp.Y, vars, namePrefixFilter, workspacePath, callFuncs)
+					s.Args[argI] = binExp
 				}
 			}
-		}
-	}
 
-	return replacements
+			if fn, ok := callFuncs[ident.Name]; ok {
+				fn(s, namePrefixFilter, workspacePath)
+			}
+		}
+	default:
+		log.Fatalf("unknown expr: %T %+v", s, s)
+	}
+	return nil
 }

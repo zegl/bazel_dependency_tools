@@ -6,10 +6,6 @@ go_library(
     importpath = "github.com/zegl/bazel_dependency_tools/parse",
     visibility = ["//visibility:public"],
     deps = [
-        "//http_archive:go_default_library",
-        "//internal:go_default_library",
-        "//internal/github:go_default_library",
-        "//maven_jar:go_default_library",
         "@net_starlark_go//starlark:go_default_library",
         "@net_starlark_go//syntax:go_default_library",
     ],
