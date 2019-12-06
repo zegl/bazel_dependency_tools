@@ -79,6 +79,12 @@ func versionUpgradeReplacements(workspace, prefixFilter string, gitHubClient git
 			}
 			return nil
 		},
+		"maven_install": func(s *syntax.CallExpr, namePrefixFilter string, workspacePath string) error {
+			if archiveReplacements, err := maven_jar.CheckInstall(s, namePrefixFilter, versionFunc); err == nil {
+				lineReplacements = append(lineReplacements, archiveReplacements...)
+			}
+			return nil
+		},
 	}
 
 	parse.ParseWorkspace(workspace, prefixFilter, callFuncs)
