@@ -148,14 +148,16 @@ func Check(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersio
 
 	log.Printf("Found: version=%s sha1=%s", newestVersion, sha1)
 
-	replacements = append(replacements, internal.LineReplacement{
-		Filename:     mavenJarArtifact.TokenPos.Filename(),
-		Line:         mavenJarArtifact.TokenPos.Line,
-		Find:         mavenJarArtifact.Value.(string),
-		Substitution: strings.Join(newXyz, ":"),
-	})
+	if mavenJarArtifact.TokenPos.Line > 0 {
+		replacements = append(replacements, internal.LineReplacement{
+			Filename:     mavenJarArtifact.TokenPos.Filename(),
+			Line:         mavenJarArtifact.TokenPos.Line,
+			Find:         mavenJarArtifact.Value.(string),
+			Substitution: strings.Join(newXyz, ":"),
+		})
+	}
 
-	if mavenJarSha1 != nil {
+	if mavenJarSha1 != nil && mavenJarSha1.TokenPos.Line > 0 {
 		replacements = append(replacements, internal.LineReplacement{
 			Filename:     mavenJarSha1.TokenPos.Filename(),
 			Line:         mavenJarSha1.TokenPos.Line,
