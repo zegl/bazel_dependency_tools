@@ -59,3 +59,14 @@ func TestReplace(t *testing.T) {
 		{Filename: "testdata/maven_jar_WORKSPACE", Line: 12, Find: "73c07fe6458840443f670b21c7bf57657093b4e1", Substitution: "deadbeef"},
 	}, replacements)
 }
+
+func TestParseWorkspaceMavenInstall(t *testing.T) {
+	replacements := versionUpgradeReplacements("testdata/maven_install_WORKSPACE", "", nil, func(c string) (string, string, error) {
+		return "11.22.33", "deadbeef", nil
+	})
+	assert.Equal(t, []internal.LineReplacement{
+		{Filename: "testdata/maven_install_WORKSPACE", Line: 3, Find: "com.google.api-client:google-api-client:1.30.2", Substitution: "com.google.api-client:google-api-client:11.22.33"},
+		{Filename: "testdata/maven_install_WORKSPACE", Line: 10, Find: "org.apache.poi:poi:4.1.0", Substitution: "org.apache.poi:poi:11.22.33"},
+		{Filename: "testdata/maven_install_WORKSPACE", Line: 11, Find: "org.apache.poi:poi-ooxml:4.1.0", Substitution: "org.apache.poi:poi-ooxml:11.22.33"},
+	}, replacements)
+}

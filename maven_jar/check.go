@@ -91,8 +91,6 @@ func mavenCentralSha1(x, y, z string) (string, error) {
 }
 
 func Check(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersionResolver) ([]internal.LineReplacement, error) {
-	var replacements []internal.LineReplacement
-
 	var mavenJarName string
 	var mavenJarArtifact *syntax.Literal
 	var mavenJarSha1 *syntax.Literal
@@ -129,14 +127,64 @@ func Check(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersio
 	}
 
 	log.Printf("Checking %s", mavenJarName)
-	_ = mavenJarSha1
 
-	newestVersion, sha1, err := versionFunc(mavenJarArtifact.Value.(string))
+	return findNewerJar(mavenJarArtifact, mavenJarSha1, versionFunc)
+}
+
+func CheckInstall(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersionResolver) ([]internal.LineReplacement, error) {
+	var replacements []internal.LineReplacement
+	var workspaceName string
+	var artifacts []*syntax.Literal
+
+	for _, arg := range e.Args {
+		if binExp, ok := arg.(*syntax.BinaryExpr); ok && binExp.Op == syntax.EQ {
+			if xIdent, ok := binExp.X.(*syntax.Ident); ok {
+				switch xIdent.Name {
+				case "name":
+					if rhs, ok := binExp.Y.(*syntax.Literal); ok {
+						workspaceName = rhs.Value.(string)
+					}
+				case "artifacts":
+					if list, ok := binExp.Y.(*syntax.ListExpr); ok {
+						for _, v := range list.List {
+							if lit, ok := v.(*syntax.Literal); ok {
+								artifacts = append(artifacts, lit)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Don't attempt to upgrade this dependency
+	if !strings.HasPrefix(workspaceName, namePrefixFilter) {
+		return nil, nil
+	}
+
+	log.Printf("Checking %s", workspaceName)
+
+	for _, art := range artifacts {
+		rep, err := findNewerJar(art, nil, versionFunc)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		replacements = append(replacements, rep...)
+	}
+
+	return replacements, nil
+}
+
+func findNewerJar(dep *syntax.Literal, depSha1 *syntax.Literal, versionFunc NewestVersionResolver) ([]internal.LineReplacement, error) {
+	var replacements []internal.LineReplacement
+
+	newestVersion, sha1, err := versionFunc(dep.Value.(string))
 	if err != nil {
 		return nil, fmt.Errorf("unable to find newer maven_jar: %w", err)
 	}
 
-	xyz := strings.Split(mavenJarArtifact.Value.(string), ":")
+	xyz := strings.Split(dep.Value.(string), ":")
 
 	// No newer version found
 	if xyz[2] == newestVersion {
@@ -148,27 +196,23 @@ func Check(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersio
 
 	log.Printf("Found: version=%s sha1=%s", newestVersion, sha1)
 
-	if mavenJarArtifact.TokenPos.Line > 0 {
+	if dep.TokenPos.Line > 0 {
 		replacements = append(replacements, internal.LineReplacement{
-			Filename:     mavenJarArtifact.TokenPos.Filename(),
-			Line:         mavenJarArtifact.TokenPos.Line,
-			Find:         mavenJarArtifact.Value.(string),
+			Filename:     dep.TokenPos.Filename(),
+			Line:         dep.TokenPos.Line,
+			Find:         dep.Value.(string),
 			Substitution: strings.Join(newXyz, ":"),
 		})
 	}
 
-	if mavenJarSha1 != nil && mavenJarSha1.TokenPos.Line > 0 {
+	if depSha1 != nil && depSha1.TokenPos.Line > 0 {
 		replacements = append(replacements, internal.LineReplacement{
-			Filename:     mavenJarSha1.TokenPos.Filename(),
-			Line:         mavenJarSha1.TokenPos.Line,
-			Find:         mavenJarSha1.Value.(string),
+			Filename:     depSha1.TokenPos.Filename(),
+			Line:         depSha1.TokenPos.Line,
+			Find:         depSha1.Value.(string),
 			Substitution: sha1,
 		})
 	}
 
-	if len(replacements) != 0 {
-		return replacements, nil
-	}
-
-	return nil, errors.New("no match")
+	return replacements, nil
 }
