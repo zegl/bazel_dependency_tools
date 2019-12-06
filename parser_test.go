@@ -9,7 +9,6 @@ import (
 	"github.com/zegl/bazel_dependency_tools/http_archive"
 	"github.com/zegl/bazel_dependency_tools/internal"
 	"github.com/zegl/bazel_dependency_tools/internal/github"
-	"github.com/zegl/bazel_dependency_tools/parse"
 )
 
 func TestParseWorkspace(t *testing.T) {
@@ -18,7 +17,7 @@ func TestParseWorkspace(t *testing.T) {
 	client.AddRelease("bazelbuild", "rules_go", "0.19.4", "https://github.com/bazelbuild/rules_go/releases/download/0.19.4/rules_go-0.19.4.tar.gz")
 	client.AddRelease("bazelbuild", "rules_sass", "1.23.1", "https://github.com/bazelbuild/rules_sass/archive/1.23.1.zip")
 
-	replacements := parse.ParseWorkspace("testdata/rules_go_0_19_3_WORKSPACE", "", client, nil)
+	replacements := versionUpgradeReplacements("testdata/rules_go_0_19_3_WORKSPACE", "", client, nil)
 	assert.Equal(t, []internal.LineReplacement{
 		// rules_go multiple urls (tar.gz from release artifacts)
 		{Filename: "testdata/rules_go_0_19_3_WORKSPACE", Line: 6, Find: "0.19.3", Substitution: "0.19.4"},
@@ -48,12 +47,15 @@ func TestFindNewerVersion(t *testing.T) {
 }
 
 func TestReplace(t *testing.T) {
-	replacements := parse.ParseWorkspace("testdata/maven_jar_WORKSPACE", "", nil, func(c string) (string, string, error) {
+	replacements := versionUpgradeReplacements("testdata/maven_jar_WORKSPACE", "", nil, func(c string) (string, string, error) {
 		return "11.22.33", "deadbeef", nil
 	})
 
 	assert.Equal(t, []internal.LineReplacement{
 		{Filename: "testdata/maven_jar_WORKSPACE", Line: 3, Find: "com.google.zxing:core:3.3.3", Substitution: "com.google.zxing:core:11.22.33"},
 		{Filename: "testdata/maven_jar_WORKSPACE", Line: 4, Find: "b640badcc97f18867c4dfd249ef8d20ec0204c07", Substitution: "deadbeef"},
+		// TODO: Support replacement of values in variables
+		// {Filename: "testdata/maven_jar_WORKSPACE", Line: 0, Find: "io.opencensus:opencensus-api:0.21.0", Substitution: "io.opencensus:opencensus-api:11.22.33"},
+		{Filename: "testdata/maven_jar_WORKSPACE", Line: 12, Find: "73c07fe6458840443f670b21c7bf57657093b4e1", Substitution: "deadbeef"},
 	}, replacements)
 }

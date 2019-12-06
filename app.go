@@ -42,24 +42,7 @@ func versionUpgrades(workspace, prefixFilter string) {
 	tc := oauth2.NewClient(ctx, ts)
 	gitHubClient := github.NewGithubClient(realGithub.NewClient(tc))
 
-	var lineReplacements []internal.LineReplacement
-
-	callFuncs := map[string]parse.FuncHook{
-		"maven_jar": func(s *syntax.CallExpr, namePrefixFilter string, workspacePath string) error {
-			if r, err := maven_jar.Check(s, namePrefixFilter, maven_jar.NewestAvailable); err == nil {
-				lineReplacements = append(lineReplacements, r...)
-			}
-			return nil
-		},
-		"http_archive": func(s *syntax.CallExpr, namePrefixFilter string, workspacePath string) error {
-			if archiveReplacements, err := http_archive.Check(s, namePrefixFilter, gitHubClient); err == nil {
-				lineReplacements = append(lineReplacements, archiveReplacements...)
-			}
-			return nil
-		},
-	}
-
-	parse.ParseWorkspace(workspace, prefixFilter, callFuncs)
+	lineReplacements := versionUpgradeReplacements(workspace, prefixFilter, gitHubClient, maven_jar.NewestAvailable)
 
 	rawContent, err := ioutil.ReadFile(workspace)
 	if err != nil {
@@ -78,6 +61,29 @@ func versionUpgrades(workspace, prefixFilter string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func versionUpgradeReplacements(workspace, prefixFilter string, gitHubClient github.Client, versionFunc maven_jar.NewestVersionResolver) []internal.LineReplacement {
+	var lineReplacements []internal.LineReplacement
+
+	callFuncs := map[string]parse.FuncHook{
+		"maven_jar": func(s *syntax.CallExpr, namePrefixFilter string, workspacePath string) error {
+			if r, err := maven_jar.Check(s, namePrefixFilter, versionFunc); err == nil {
+				lineReplacements = append(lineReplacements, r...)
+			}
+			return nil
+		},
+		"http_archive": func(s *syntax.CallExpr, namePrefixFilter string, workspacePath string) error {
+			if archiveReplacements, err := http_archive.Check(s, namePrefixFilter, gitHubClient); err == nil {
+				lineReplacements = append(lineReplacements, archiveReplacements...)
+			}
+			return nil
+		},
+	}
+
+	parse.ParseWorkspace(workspace, prefixFilter, callFuncs)
+
+	return lineReplacements
 }
 
 func findLicenses(workspace, prefixFilter string) {
