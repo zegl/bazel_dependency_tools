@@ -3,8 +3,9 @@ package parse
 import (
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
 
-	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
 )
 
@@ -27,16 +28,13 @@ func ToMultiPosLiteral(stmt syntax.Expr) *MultiPosLiteral {
 }
 
 func ParseWorkspace(path, namePrefixFilter string, callFuncs map[string]FuncHook) {
-	file, _, err := starlark.SourceProgram(path, nil, func(name string) bool {
-		log.Printf("isPredeclared: %s", name)
-		return true
-	})
+	f, err := syntax.Parse(path, nil, syntax.RetainComments)
 	if err != nil {
-		// panic(err)
+		panic(err)
 	}
 
 	vars := make(map[string]syntax.Expr)
-	for _, stmt := range file.Stmts {
+	for _, stmt := range f.Stmts {
 		eval(stmt, vars, namePrefixFilter, path, callFuncs)
 	}
 }
