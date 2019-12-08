@@ -10,6 +10,22 @@ import (
 
 type FuncHook func(s *syntax.CallExpr, namePrefixFilter string, workspacePath string) error
 
+type MultiPosLiteral struct {
+	syntax.Literal
+	Positions []syntax.Position
+}
+
+func ToMultiPosLiteral(stmt syntax.Expr) *MultiPosLiteral {
+	switch s := stmt.(type) {
+	case *syntax.Literal:
+		return &MultiPosLiteral{Literal: *s, Positions: []syntax.Position{s.TokenPos}}
+	case *MultiPosLiteral:
+		return s
+	default:
+		panic("unknown toMultiPosLiteral")
+	}
+}
+
 func ParseWorkspace(path, namePrefixFilter string, callFuncs map[string]FuncHook) {
 	file, _, err := starlark.SourceProgram(path, nil, func(name string) bool {
 		log.Printf("isPredeclared: %s", name)
@@ -40,6 +56,17 @@ func eval(stmt syntax.Stmt, vars map[string]syntax.Expr, namePrefixFilter, works
 	return nil
 }
 
+func pos(stmt syntax.Expr) syntax.Position {
+	switch s := stmt.(type) {
+	case *syntax.Literal:
+		return s.TokenPos
+	case *syntax.Ident:
+		return s.NamePos
+	default:
+		panic("unknown pos")
+	}
+}
+
 func evalExpr(stmt syntax.Expr, vars map[string]syntax.Expr, namePrefixFilter, workspacePath string, callFuncs map[string]FuncHook) syntax.Expr {
 	switch s := stmt.(type) {
 	case *syntax.Literal:
@@ -56,13 +83,18 @@ func evalExpr(stmt syntax.Expr, vars map[string]syntax.Expr, namePrefixFilter, w
 	case *syntax.BinaryExpr:
 		switch s.Op {
 		case syntax.PERCENT:
+			x := evalExpr(s.X, vars, namePrefixFilter, workspacePath, callFuncs)
+			y := evalExpr(s.Y, vars, namePrefixFilter, workspacePath, callFuncs)
 			val := fmt.Sprintf(
-				evalExpr(s.X, vars, namePrefixFilter, workspacePath, callFuncs).(*syntax.Literal).Value.(string),
-				evalExpr(s.Y, vars, namePrefixFilter, workspacePath, callFuncs).(*syntax.Literal).Value.(string),
+				x.(*syntax.Literal).Value.(string),
+				y.(*syntax.Literal).Value.(string),
 			)
-			return &syntax.Literal{
-				Value: val,
+			r := &MultiPosLiteral{
+				Literal:   syntax.Literal{Value: val},
+				Positions: []syntax.Position{pos(x), pos(y)},
 			}
+			log.Printf("%+v", r)
+			return r
 		default:
 			panic("unknown binary expr op")
 		}
