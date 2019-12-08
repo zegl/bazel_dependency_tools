@@ -13,6 +13,7 @@ import (
 	"go.starlark.net/syntax"
 
 	"github.com/zegl/bazel_dependency_tools/internal"
+	"github.com/zegl/bazel_dependency_tools/parse"
 )
 
 type NewestVersionResolver func(coordinate string) (version, sha1 string, err error)
@@ -92,7 +93,7 @@ func mavenCentralSha1(x, y, z string) (string, error) {
 
 func Check(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersionResolver) ([]internal.LineReplacement, error) {
 	var mavenJarName string
-	var mavenJarArtifact *syntax.Literal
+	var mavenJarArtifact *parse.MultiPosLiteral
 	var mavenJarSha1 *syntax.Literal
 	// var mavenJarSha256 *syntax.Literal
 
@@ -105,9 +106,7 @@ func Check(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersio
 						mavenJarName = rhs.Value.(string)
 					}
 				case "artifact":
-					if rhs, ok := binExp.Y.(*syntax.Literal); ok {
-						mavenJarArtifact = rhs
-					}
+					mavenJarArtifact = parse.ToMultiPosLiteral(binExp.Y)
 				case "sha1":
 					if rhs, ok := binExp.Y.(*syntax.Literal); ok {
 						mavenJarSha1 = rhs
@@ -134,7 +133,7 @@ func Check(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersio
 func CheckInstall(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersionResolver) ([]internal.LineReplacement, error) {
 	var replacements []internal.LineReplacement
 	var workspaceName string
-	var artifacts []*syntax.Literal
+	var artifacts []*parse.MultiPosLiteral
 
 	for _, arg := range e.Args {
 		if binExp, ok := arg.(*syntax.BinaryExpr); ok && binExp.Op == syntax.EQ {
@@ -147,9 +146,7 @@ func CheckInstall(e *syntax.CallExpr, namePrefixFilter string, versionFunc Newes
 				case "artifacts":
 					if list, ok := binExp.Y.(*syntax.ListExpr); ok {
 						for _, v := range list.List {
-							if lit, ok := v.(*syntax.Literal); ok {
-								artifacts = append(artifacts, lit)
-							}
+							artifacts = append(artifacts, parse.ToMultiPosLiteral(v))
 						}
 					}
 				}
@@ -176,7 +173,7 @@ func CheckInstall(e *syntax.CallExpr, namePrefixFilter string, versionFunc Newes
 	return replacements, nil
 }
 
-func findNewerJar(dep *syntax.Literal, depSha1 *syntax.Literal, versionFunc NewestVersionResolver) ([]internal.LineReplacement, error) {
+func findNewerJar(dep *parse.MultiPosLiteral, depSha1 *syntax.Literal, versionFunc NewestVersionResolver) ([]internal.LineReplacement, error) {
 	var replacements []internal.LineReplacement
 
 	newestVersion, sha1, err := versionFunc(dep.Value.(string))
@@ -191,17 +188,14 @@ func findNewerJar(dep *syntax.Literal, depSha1 *syntax.Literal, versionFunc Newe
 		return nil, nil
 	}
 
-	newXyz := xyz
-	newXyz[2] = newestVersion
-
 	log.Printf("Found: version=%s sha1=%s", newestVersion, sha1)
 
-	if dep.TokenPos.Line > 0 {
+	for _, pos := range dep.Positions {
 		replacements = append(replacements, internal.LineReplacement{
-			Filename:     dep.TokenPos.Filename(),
-			Line:         dep.TokenPos.Line,
-			Find:         dep.Value.(string),
-			Substitution: strings.Join(newXyz, ":"),
+			Filename:     pos.Filename(),
+			Line:         pos.Line,
+			Find:         xyz[2],
+			Substitution: newestVersion,
 		})
 	}
 

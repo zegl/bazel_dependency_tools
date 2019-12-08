@@ -37,7 +37,6 @@ go_test(
         "//http_archive:go_default_library",
         "//internal:go_default_library",
         "//internal/github:go_default_library",
-        "//parse:go_default_library",
         "@com_github_blang_semver//:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
     ],

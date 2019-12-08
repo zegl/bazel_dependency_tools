@@ -10,6 +10,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//internal:go_default_library",
+        "//parse:go_default_library",
         "@com_github_blang_semver//:go_default_library",
         "@net_starlark_go//syntax:go_default_library",
     ],

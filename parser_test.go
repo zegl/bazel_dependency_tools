@@ -52,10 +52,11 @@ func TestReplace(t *testing.T) {
 	})
 
 	assert.Equal(t, []internal.LineReplacement{
-		{Filename: "testdata/maven_jar_WORKSPACE", Line: 3, Find: "com.google.zxing:core:3.3.3", Substitution: "com.google.zxing:core:11.22.33"},
+		{Filename: "testdata/maven_jar_WORKSPACE", Line: 3, Find: "3.3.3", Substitution: "11.22.33"},
 		{Filename: "testdata/maven_jar_WORKSPACE", Line: 4, Find: "b640badcc97f18867c4dfd249ef8d20ec0204c07", Substitution: "deadbeef"},
 		// TODO: Support replacement of values in variables
-		// {Filename: "testdata/maven_jar_WORKSPACE", Line: 0, Find: "io.opencensus:opencensus-api:0.21.0", Substitution: "io.opencensus:opencensus-api:11.22.33"},
+		{Filename: "testdata/maven_jar_WORKSPACE", Line: 11, Find: "0.21.0", Substitution: "11.22.33"},
+		{Filename: "testdata/maven_jar_WORKSPACE", Line: 8, Find: "0.21.0", Substitution: "11.22.33"},
 		{Filename: "testdata/maven_jar_WORKSPACE", Line: 12, Find: "73c07fe6458840443f670b21c7bf57657093b4e1", Substitution: "deadbeef"},
 	}, replacements)
 }
@@ -65,8 +66,8 @@ func TestParseWorkspaceMavenInstall(t *testing.T) {
 		return "11.22.33", "deadbeef", nil
 	})
 	assert.Equal(t, []internal.LineReplacement{
-		{Filename: "testdata/maven_install_WORKSPACE", Line: 3, Find: "com.google.api-client:google-api-client:1.30.2", Substitution: "com.google.api-client:google-api-client:11.22.33"},
-		{Filename: "testdata/maven_install_WORKSPACE", Line: 10, Find: "org.apache.poi:poi:4.1.0", Substitution: "org.apache.poi:poi:11.22.33"},
-		{Filename: "testdata/maven_install_WORKSPACE", Line: 11, Find: "org.apache.poi:poi-ooxml:4.1.0", Substitution: "org.apache.poi:poi-ooxml:11.22.33"},
+		{Filename: "testdata/maven_install_WORKSPACE", Line: 3, Find: "1.30.2", Substitution: "11.22.33"},
+		{Filename: "testdata/maven_install_WORKSPACE", Line: 10, Find: "4.1.0", Substitution: "11.22.33"},
+		{Filename: "testdata/maven_install_WORKSPACE", Line: 11, Find: "4.1.0", Substitution: "11.22.33"},
 	}, replacements)
 }
