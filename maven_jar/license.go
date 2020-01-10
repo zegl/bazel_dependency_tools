@@ -195,7 +195,7 @@ func mavenLicense(repository, x, y, z string) (LIC, error) {
 	}
 
 	// Check newer version
-	newZ, _, err := NewestAvailable(fmt.Sprintf("%s:%s:%s", x, y, z))
+	newZ, _, err := NewestAvailable(fmt.Sprintf("%s:%s:%s", x, y, z), nil)
 	if newZ != z && err == nil {
 		if l, err := mavenLicense(repository, x, y, newZ); err == nil {
 			return l, nil

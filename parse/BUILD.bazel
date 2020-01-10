@@ -5,7 +5,10 @@ go_library(
     srcs = ["parse.go"],
     importpath = "github.com/zegl/bazel_dependency_tools/parse",
     visibility = ["//visibility:public"],
-    deps = ["@net_starlark_go//syntax:go_default_library"],
+    deps = [
+        "@com_github_masterminds_semver//:go_default_library",
+        "@net_starlark_go//syntax:go_default_library",
+    ],
 )
 
 go_test(
@@ -13,6 +16,7 @@ go_test(
     srcs = ["parse_test.go"],
     embed = [":go_default_library"],
     deps = [
+        "@com_github_masterminds_semver//:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
         "@net_starlark_go//syntax:go_default_library",
     ],

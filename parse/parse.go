@@ -3,9 +3,9 @@ package parse
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 
+	"github.com/Masterminds/semver"
 	"go.starlark.net/syntax"
 )
 
@@ -67,37 +67,25 @@ func pos(stmt syntax.Expr) syntax.Position {
 
 // UpgradeRules returns the allowed major, minor, patch versions
 // If a version is -1, it's allowed to be upgraded to any version
-func UpgradeRules(comments *syntax.Comments) (major, minor, patch int) {
-	major, minor, patch = -1, -1, -1
+func UpgradeRules(comments *syntax.Comments) *semver.Constraints {
+	if comments == nil {
+		c, _ := semver.NewConstraint(">= 0.0.0")
+		return c
+	}
 
 	for _, co := range [][]syntax.Comment{comments.Before, comments.Suffix} {
 		for _, c := range co {
 			if strings.HasPrefix(c.Text, "# bazel_dependency_tools:") {
-				for _, part := range strings.Split(c.Text, " ") {
-					eq := strings.Split(part, "=")
-					if len(eq) < 2 {
-						continue
-					}
-
-					pinned, err := strconv.Atoi(eq[1])
-					if err != nil {
-						continue
-					}
-
-					switch eq[0] {
-					case "major":
-						major = pinned
-					case "minor":
-						minor = pinned
-					case "patch":
-						patch = pinned
-					}
+				semverCompare := strings.TrimSpace(c.Text[len("# bazel_dependency_tools:"):])
+				if c, err := semver.NewConstraint(semverCompare); err == nil {
+					return c
 				}
 			}
 		}
 	}
 
-	return
+	c, _ := semver.NewConstraint(">= 0.0.0")
+	return c
 }
 
 func evalExpr(stmt syntax.Expr, vars map[string]syntax.Expr, namePrefixFilter, workspacePath string, callFuncs map[string]FuncHook) syntax.Expr {
