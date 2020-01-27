@@ -10,17 +10,17 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/blang/semver"
 	"go.starlark.net/syntax"
 
 	"github.com/zegl/bazel_dependency_tools/internal"
 	"github.com/zegl/bazel_dependency_tools/internal/github"
+	isemver "github.com/zegl/bazel_dependency_tools/internal/semver"
 
 	realGithub "github.com/google/go-github/v28/github"
 )
 
-var gitHubReleaseRegex = regexp.MustCompile(`https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/releases/download/v?([a-z0-9\.]+)/(.*)\.tar\.gz`)
-var githubArchiveRegex = regexp.MustCompile(`https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/archive/v?([a-z0-9\.]+)\.zip`)
+var gitHubReleaseRegex = regexp.MustCompile(`https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/releases/download/([a-z0-9\.]+)/(.*)\.tar\.gz`)
+var githubArchiveRegex = regexp.MustCompile(`https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/archive/([a-z0-9\.]+)\.zip`)
 
 func Check(e *syntax.CallExpr, namePrefixFilter string, gitHubClient github.Client) ([]internal.LineReplacement, error) {
 	var replacements []internal.LineReplacement
@@ -144,19 +144,23 @@ func FindNewerGitHubRelease(githubClient github.Client, url string) (oldVersion,
 		return "", "", "", err
 	}
 
-	highestVersion, err := semver.New(strings.TrimLeft(tag, "v"))
+	highestVersion, err := isemver.NormalizeNew(tag)
 	if err != nil {
 		return "", "", "", err
 	}
 
 	var highestRelease *realGithub.RepositoryRelease
+	var highestReleaseTag string
 
 	for _, release := range releases {
-		if ver, err := semver.New(strings.TrimLeft(*release.TagName, "v")); err == nil {
+		if ver, err := isemver.NormalizeNew(*release.TagName); err == nil {
 			if ver.GT(*highestVersion) {
 				highestVersion = ver
 				highestRelease = release
+				highestReleaseTag = *release.TagName
 			}
+		} else {
+			log.Println(err)
 		}
 	}
 
@@ -180,10 +184,10 @@ func FindNewerGitHubRelease(githubClient github.Client, url string) (oldVersion,
 		}
 	}
 
-	if oldVersion == highestVersion.String() {
+	if oldVersion == highestReleaseTag {
 		return "", "", "", errors.New("no newer version found")
 	}
 
-	log.Printf("Found: version=%s sha256=%s", highestVersion.String(), sha256sum)
-	return oldVersion, highestVersion.String(), sha256sum, nil
+	log.Printf("Found: version=%s sha256=%s", highestReleaseTag, sha256sum)
+	return oldVersion, highestReleaseTag, sha256sum, nil
 }
