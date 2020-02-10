@@ -9,14 +9,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver"
 	"go.starlark.net/syntax"
 
 	"github.com/zegl/bazel_dependency_tools/internal"
 	"github.com/zegl/bazel_dependency_tools/parse"
 )
 
-type NewestVersionResolver func(coordinate string) (version, sha1 string, err error)
+type NewestVersionResolver func(coordinate string, constraint *semver.Constraints) (version, sha1 string, err error)
 
 type Meta struct {
 	XMLName    xml.Name `xml:"metadata"`
@@ -28,7 +28,7 @@ type Meta struct {
 	} `xml:"versioning"`
 }
 
-func NewestAvailable(coordinate string) (string, string, error) {
+func NewestAvailable(coordinate string, constraint *semver.Constraints) (string, string, error) {
 	xyz := strings.Split(coordinate, ":")
 
 	resp, err := http.Get(fmt.Sprintf("https://repo1.maven.org/maven2/%s/%s/maven-metadata.xml", strings.ReplaceAll(xyz[0], ".", "/"), xyz[1]))
@@ -49,17 +49,24 @@ func NewestAvailable(coordinate string) (string, string, error) {
 	}
 
 	// Find the newest version available
-	var newestVersion semver.Version
+	var newestVersion *semver.Version
 
 	for _, versions := range meta.Versioning.Versions {
 		for _, version := range versions.Version {
-			if v, err := semver.Parse(version); err == nil {
-				if v.GT(newestVersion) {
+			if v, err := semver.NewVersion(version); err == nil {
+				if (newestVersion == nil || v.GreaterThan(newestVersion)) &&
+					(constraint == nil || constraint.Check(v)) {
 					newestVersion = v
 				}
 			}
 		}
 	}
+
+	if newestVersion == nil {
+		return "", "", fmt.Errorf("failed to find new version")
+	}
+
+	log.Printf("found: %s", newestVersion)
 
 	sha1, err := mavenCentralSha1(xyz[0], xyz[1], newestVersion.String())
 	if err != nil {
@@ -106,6 +113,7 @@ func Check(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersio
 						mavenJarName = rhs.Value.(string)
 					}
 				case "artifact":
+					log.Printf("%+v", binExp.Y.Comments())
 					mavenJarArtifact = parse.ToMultiPosLiteral(binExp.Y)
 				case "sha1":
 					if rhs, ok := binExp.Y.(*syntax.Literal); ok {
@@ -127,7 +135,7 @@ func Check(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersio
 
 	log.Printf("Checking %s", mavenJarName)
 
-	return findNewerJar(mavenJarArtifact, mavenJarSha1, versionFunc)
+	return findNewerJar(mavenJarArtifact, mavenJarSha1, versionFunc, parse.UpgradeRules(mavenJarArtifact.Comments()))
 }
 
 func CheckInstall(e *syntax.CallExpr, namePrefixFilter string, versionFunc NewestVersionResolver) ([]internal.LineReplacement, error) {
@@ -162,7 +170,7 @@ func CheckInstall(e *syntax.CallExpr, namePrefixFilter string, versionFunc Newes
 	log.Printf("Checking %s", workspaceName)
 
 	for _, art := range artifacts {
-		rep, err := findNewerJar(art, nil, versionFunc)
+		rep, err := findNewerJar(art, nil, versionFunc, parse.UpgradeRules(art.Comments()))
 		if err != nil {
 			log.Println(err)
 			continue
@@ -173,10 +181,10 @@ func CheckInstall(e *syntax.CallExpr, namePrefixFilter string, versionFunc Newes
 	return replacements, nil
 }
 
-func findNewerJar(dep *parse.MultiPosLiteral, depSha1 *syntax.Literal, versionFunc NewestVersionResolver) ([]internal.LineReplacement, error) {
+func findNewerJar(dep *parse.MultiPosLiteral, depSha1 *syntax.Literal, versionFunc NewestVersionResolver, contraint *semver.Constraints) ([]internal.LineReplacement, error) {
 	var replacements []internal.LineReplacement
 
-	newestVersion, sha1, err := versionFunc(dep.Value.(string))
+	newestVersion, sha1, err := versionFunc(dep.Value.(string), contraint)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find newer maven_jar: %w", err)
 	}

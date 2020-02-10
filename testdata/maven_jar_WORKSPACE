@@ -1,13 +1,13 @@
 maven_jar(
     name = "com_google_zxing_qrcode_core",
-    artifact = "com.google.zxing:core:3.3.3",
-    sha1 = "b640badcc97f18867c4dfd249ef8d20ec0204c07",
+    artifact = "com.google.zxing:core:3.4.0",
+    sha1 = "5264296c46634347890ec9250bc65f14b7362bf8",
 )
 
 # Non-string artifact (not yet supported)
-OPENCENSUS_VERSION = "0.21.0"
+OPENCENSUS_VERSION = "0.24.0"
 maven_jar(
     name = "io_opencensus_opencensus_api",
     artifact = "io.opencensus:opencensus-api:%s" % OPENCENSUS_VERSION,
-    sha1 = "73c07fe6458840443f670b21c7bf57657093b4e1",
+    sha1 = "f974451b19007ce820f433311ce8adb88e2b7d2c",
 )

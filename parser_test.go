@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/zegl/bazel_dependency_tools/http_archive"
@@ -41,13 +41,13 @@ func TestFindNewerVersion(t *testing.T) {
 
 	existing, newest, shasum, err := http_archive.FindNewerGitHubRelease(client, "https://github.com/bazelbuild/rules_go/releases/download/0.19.3/rules_go-0.19.3.tar.gz")
 	assert.Nil(t, err)
-	assert.True(t, semver.MustParse(newest).GT(semver.MustParse("0.19.3")))
+	assert.True(t, semver.MustParse(newest).GreaterThan(semver.MustParse("0.19.3")))
 	assert.Equal(t, "0.19.3", existing)
 	assert.Equal(t, "ae8c36ff6e565f674c7a3692d6a9ea1096e4c1ade497272c2108a810fb39acd2", shasum)
 }
 
 func TestReplace(t *testing.T) {
-	replacements := versionUpgradeReplacements("testdata/maven_jar_WORKSPACE", "", nil, func(c string) (string, string, error) {
+	replacements := versionUpgradeReplacements("testdata/maven_jar_WORKSPACE", "", nil, func(c string, constraint *semver.Constraints) (string, string, error) {
 		return "11.22.33", "deadbeef", nil
 	})
 
@@ -62,7 +62,7 @@ func TestReplace(t *testing.T) {
 }
 
 func TestParseWorkspaceMavenInstall(t *testing.T) {
-	replacements := versionUpgradeReplacements("testdata/maven_install_WORKSPACE", "", nil, func(c string) (string, string, error) {
+	replacements := versionUpgradeReplacements("testdata/maven_install_WORKSPACE", "", nil, func(c string, constraint *semver.Constraints) (string, string, error) {
 		return "11.22.33", "deadbeef", nil
 	})
 	assert.Equal(t, []internal.LineReplacement{

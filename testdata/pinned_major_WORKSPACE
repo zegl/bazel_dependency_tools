@@ -1,0 +1,14 @@
+maven_install(
+    name = "jetty_server9",
+    artifacts = [
+        "org.eclipse.jetty:jetty-util:9.4.15.v20190215", # bazel_dependency_tools: ~9
+        "org.eclipse.jetty:jetty-server:9.4.15.v20190215", # bazel_dependency_tools: ~9.4
+        "org.eclipse.jetty:jetty-http:9.4.15.v20190215", # bazel_dependency_tools: ~9
+        "javax.servlet:javax.servlet-api:3.1.0", # bazel_dependency_tools: ~3
+    ],
+    fetch_sources = True,
+    maven_install_json = "//third_party:jetty_server9_install.json",
+    repositories = [
+        "https://repo1.maven.org/maven2",
+    ],
+)

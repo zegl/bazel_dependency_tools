@@ -3,8 +3,9 @@ package parse
 import (
 	"fmt"
 	"log"
+	"strings"
 
-	"go.starlark.net/starlark"
+	"github.com/Masterminds/semver"
 	"go.starlark.net/syntax"
 )
 
@@ -27,16 +28,13 @@ func ToMultiPosLiteral(stmt syntax.Expr) *MultiPosLiteral {
 }
 
 func ParseWorkspace(path, namePrefixFilter string, callFuncs map[string]FuncHook) {
-	file, _, err := starlark.SourceProgram(path, nil, func(name string) bool {
-		log.Printf("isPredeclared: %s", name)
-		return true
-	})
+	f, err := syntax.Parse(path, nil, syntax.RetainComments)
 	if err != nil {
-		// panic(err)
+		panic(err)
 	}
 
 	vars := make(map[string]syntax.Expr)
-	for _, stmt := range file.Stmts {
+	for _, stmt := range f.Stmts {
 		eval(stmt, vars, namePrefixFilter, path, callFuncs)
 	}
 }
@@ -65,6 +63,29 @@ func pos(stmt syntax.Expr) syntax.Position {
 	default:
 		panic("unknown pos")
 	}
+}
+
+// UpgradeRules returns the allowed major, minor, patch versions
+// If a version is -1, it's allowed to be upgraded to any version
+func UpgradeRules(comments *syntax.Comments) *semver.Constraints {
+	if comments == nil {
+		c, _ := semver.NewConstraint(">= 0.0.0")
+		return c
+	}
+
+	for _, co := range [][]syntax.Comment{comments.Before, comments.Suffix} {
+		for _, c := range co {
+			if strings.HasPrefix(c.Text, "# bazel_dependency_tools:") {
+				semverCompare := strings.TrimSpace(c.Text[len("# bazel_dependency_tools:"):])
+				if c, err := semver.NewConstraint(semverCompare); err == nil {
+					return c
+				}
+			}
+		}
+	}
+
+	c, _ := semver.NewConstraint(">= 0.0.0")
+	return c
 }
 
 func evalExpr(stmt syntax.Expr, vars map[string]syntax.Expr, namePrefixFilter, workspacePath string, callFuncs map[string]FuncHook) syntax.Expr {
